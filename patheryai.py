@@ -260,10 +260,20 @@ class Population:
         newInd.calcFitness()
         return newInd
 
+best = 0
+noimprovement = 0
 population = Population.createPopulation(populationSize)
 for i in range(generations):
     population = Population.evolve(population)
-    print(population[0])
+    newbest = population[0].getFitness()
+    print population[0]
+    if newbest == best:
+        noimprovement += 1
+    else:
+        best = newbest
+        noimprovement = 0
+    if noimprovement > 10:
+        population = population[0:10] + Population.createPopulation(populationSize - 10)
     if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
         line = raw_input()
         break
