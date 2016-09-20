@@ -232,16 +232,21 @@ class Population:
                 cross.mutate()
                 cross.calcFitness()
             newPopulation.append(cross)
+        best = newPopulation[0]
+        for individual in newPopulation:
+            if individual.getFitness() > best.getFitness():
+                best = individual
+        newPopulation[0] = best
         return sorted(newPopulation, key=lambda x: x.fitness, reverse=True)
 
     @staticmethod
     def tournamentSelection(population):
-        fittest = populationSize
-        for i in range(0, tournamentSize):
+        fittest = population[random.randint(0, populationSize - 1)]
+        for i in range(0, tournamentSize - 1):
             x = random.randint(0, populationSize - 1)
-            if x < fittest:
-                fittest = x
-        return population[fittest]
+            if population[x].getFitness() > fittest.getFitness():
+                fittest = population[x]
+        return fittest
 
     @staticmethod
     def crossover(ind1, ind2):
