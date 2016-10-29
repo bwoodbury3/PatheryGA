@@ -11,6 +11,7 @@ def getLevel(levelID):
     width = int(data.get('width'))
     height = int(data.get('height'))
     walls = int(data.get('walls'))
+    teleporters = False
     level = []
     for i in range(height):
         row_data = mapdata[i]
@@ -34,9 +35,10 @@ def getLevel(levelID):
             elif cell[0] == 't':
                 row.append(0)
                 print "Teleporter found....."
+                teleporters = True
             elif cell[0] == 's':
                 row.append('s')
             elif cell[0] == 'f':
                 row.append('f')
         level.append(row)
-    return (walls, level, mapcode)
+    return (walls, level, mapcode, teleporters)

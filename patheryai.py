@@ -23,6 +23,13 @@ walls = data[0]
 level = data[1]
 mapcode = data[2]
 
+if data[3] == True:
+    print "The solver does not yet account for teleporters"
+    print "Please try another mapID that does not have a"
+    print "  teleporter."
+    sys.exit(1)
+
+
 print "Walls: " + str(walls)
 
 checkpoints = ['s', 'a', 'b', 'c', 'd', 'e', 'f'];
