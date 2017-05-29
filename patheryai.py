@@ -329,7 +329,6 @@ class Simulation:
         for i in range(generations):
             self.population = Population.evolve(self.population)
             newbest = self.population[0].getFitness()
-            print self.population[0]
             if newbest == best:
                 noimprovement += 1
             else:
@@ -340,7 +339,7 @@ class Simulation:
             if noimprovement > 10:
                 self.population = self.population[0:10] + Population.createPopulation(populationSize - 10)
             if noimprovement > 30:
-                print "Converged"
+                print "Converged, score: " + str(best)
                 i = generations
                 levelcopy = copy.deepcopy(level)
                 tempLevel = Level(levelcopy)
@@ -407,7 +406,7 @@ class Simulation:
 def submit(genes):
     pass
 
-eonCount = 1
+eonCount = 5
 optimizeCount = 5
 eons = []
 for i in range(eonCount):
