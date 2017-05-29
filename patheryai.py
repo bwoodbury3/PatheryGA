@@ -7,6 +7,7 @@ import os
 import select
 
 from collections import deque
+from sets import Set
 
 mapID = 8026
 mapCode = ""
@@ -87,6 +88,44 @@ class Level():
             score += cur[1]
         return score
 
+    def getSolvePath(self):
+        numRows = self.rows()
+        numCols = self.cols()
+
+        numCheckpoints = self.numCheckpoints()
+        levelCheckpoints = [0] * numCheckpoints
+        levelCheckpoints[-1] = 'f'
+        for i in range(0, numCheckpoints - 1):
+            levelCheckpoints[i] = checkpoints[i]
+
+        path = Set()
+        for i in range(1, numCheckpoints):
+            queue = deque()
+            visited = {}
+            for loc in self.locations(levelCheckpoints[i]):
+                queue.appendleft((loc, 0))
+                visited[loc] = 0
+            cur = queue.pop()
+            while (self.get(cur[0]) != levelCheckpoints[i - 1]):
+                dist = cur[1]
+                surroundings = self.surroundings(cur[0])
+                for surr in surroundings:
+                    if (not surr in visited) and self.get(surr) != 'x' and self.get(surr) != 'X':
+                        queue.appendleft((surr, dist + 1))
+                        visited[surr] = dist + 1
+                if (len(queue) == 0):
+                    return -1
+                cur = queue.pop()
+
+            trace = cur
+            while (self.get(trace[0]) != levelCheckpoints[i]):
+                path.add(trace[0])
+                surroundings = self.surroundings(trace[0])
+                for surr in surroundings:
+                    if surr in visited and visited[surr] == trace[1] - 1:
+                        trace = (surr, visited[surr])
+
+        return path
 
     def addBlock(self, loc):
         if (self.level[loc[0]][loc[1]] == 0):
@@ -192,6 +231,12 @@ class Individual:
                     self.genes.append((r, c))
         self.calcFitness()
 
+    def getSolvePath(self):
+        temp = Level(copy.deepcopy(level))
+        for gene in self.genes:
+            temp.addBlock(gene)
+        return temp.getSolvePath()
+
     # uses the global level variable
     def calcFitness(self):
         temp = Level(copy.deepcopy(level))
@@ -272,29 +317,125 @@ class Population:
         newInd.calcFitness()
         return newInd
 
-best = 0
-noimprovement = 0
-population = Population.createPopulation(populationSize)
-for i in range(generations):
-    population = Population.evolve(population)
-    newbest = population[0].getFitness()
-    print population[0]
-    if newbest == best:
-        noimprovement += 1
-    else:
-        best = newbest
+class Simulation:
+    def __init__(self):
+        self.population = Population.createPopulation(populationSize)
+
+    def run(self):
+        print "Running a simulation"
+        best = 0
         noimprovement = 0
-    if noimprovement > 10:
-        population = population[0:10] + Population.createPopulation(populationSize - 10)
-    if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-        line = raw_input()
-        break
+        for i in range(generations):
+            self.population = Population.evolve(self.population)
+            newbest = self.population[0].getFitness()
+            print self.population[0]
+            if newbest == best:
+                noimprovement += 1
+            else:
+                best = newbest
+                noimprovement = 0
+            # This will add more variation to the mix if the population is
+            # starting to converge
+            if noimprovement > 10:
+                self.population = self.population[0:10] + Population.createPopulation(populationSize - 10)
+            if noimprovement > 30:
+                print "Converged"
+                i = generations
+                levelcopy = copy.deepcopy(level)
+                tempLevel = Level(levelcopy)
+                tempLevel.plotPoints(self.population[0].genes)
+                solStr = tempLevel.generateSolutionString(self.population[0].genes)
+                return (self.population[0].genes, newbest)
+            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                line = raw_input()
+                break
 
-print population[0]
+    # Find the best place for a wall
+    def optimize(self, genes):
+        leastInfluential = self.leastInfluentialWall(genes)
+        newGenes = [g if g[0] != leastInfluential else None for g in genes]
+        newGenes.append(self.bestPlaceForNewWall(newGenes)[0])
+        return newGenes
 
-levelcopy = copy.deepcopy(level)
-tempLevel = Level(levelcopy)
-tempLevel.plotPoints(population[0].genes)
-solStr = tempLevel.generateSolutionString(population[0].genes)
-print(tempLevel)
-sendpath.sendPath(mapcode, mapID, solStr)
+    # This finds the wall with the least impact
+    def leastInfluentialWall(self, genes):
+        # This is the difference between the score with and the score without
+        #   this wall
+        geneWeights = []
+        previousIndividual = Individual()
+        map(lambda g: previousIndividual.addGene(g), genes)
+        previousIndividual.calcFitness()
+        baselineScore = previousIndividual.getFitness()
+        for gene in genes:
+            individual = Individual()
+            map(lambda g: individual.addGene(g) if g != gene else None, genes)
+            individual.calcFitness()
+            geneWeights.append((gene, individual.getFitness()))
+        # Get the wall that leaves the solution with the greatest score
+        least = sorted(geneWeights, key=lambda x: x[1])[0]
+        return least
+
+    # This finds the best place to put a wall
+    def bestPlaceForNewWall(self, genes):
+        previousIndividual = Individual()
+        map(lambda g: previousIndividual.addGene(g), genes)
+        previousIndividual.calcFitness()
+        baselineScore = previousIndividual.getFitness()
+        path = self.getPath(genes)
+        most = ((-1, -1), -1)
+        for loc in path:
+            individual = Individual()
+            map(lambda g: individual.addGene(g), genes)
+            individual.addGene(loc)
+            individual.calcFitness()
+            weight = individual.getFitness()
+            if weight > most[1]:
+                most = (loc, weight)
+        return most
+
+    def getPath(self, genes):
+        individual = Individual()
+        map(lambda g: individual.addGene(g), genes)
+        path = individual.getSolvePath()
+        return path
+
+def submit(genes):
+    pass
+
+eonCount = 1
+eons = []
+for i in range(eonCount):
+    simulation = Simulation()
+    eons.append(simulation.run())
+    print eons[0][0]
+    submit(eons[i][0])
+
+eons = sorted(eons, key=lambda x: x[1], reverse=True)
+
+print ""
+print "------Before optimizing------"
+temp = Level(copy.deepcopy(level))
+for gene in eons[0][0]:
+    temp.addBlock(gene)
+print temp
+print "Score: " + str(eons[0][1])
+
+newEons = []
+
+for eon in eons:
+    newEon = simulation.optimize(eon[0])
+    print newEon
+    individual = Individual()
+    map(lambda g: individual.addGene(g), newEon)
+    individual.calcFitness()
+    weight = individual.getFitness()
+    newEons.append((newEon, weight))
+
+newEons = sorted(newEons, key=lambda x: x[1], reverse=True)
+
+print "------After optimizing------"
+temp = Level(copy.deepcopy(level))
+for gene in newEons[0][0]:
+    temp.addBlock(gene)
+print temp
+print "Score: " + str(newEons[0][1])
