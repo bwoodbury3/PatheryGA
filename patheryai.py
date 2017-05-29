@@ -119,11 +119,12 @@ class Level():
 
             trace = cur
             while (self.get(trace[0]) != levelCheckpoints[i]):
-                path.add(trace[0])
                 surroundings = self.surroundings(trace[0])
                 for surr in surroundings:
                     if surr in visited and visited[surr] == trace[1] - 1:
                         trace = (surr, visited[surr])
+                if self.get(trace[0]) != levelCheckpoints[i]:
+                    path.add(trace[0])
 
         return path
 
@@ -353,8 +354,12 @@ class Simulation:
     # Find the best place for a wall
     def optimize(self, genes):
         leastInfluential = self.leastInfluentialWall(genes)
-        newGenes = [g if g[0] != leastInfluential else None for g in genes]
-        newGenes.append(self.bestPlaceForNewWall(newGenes)[0])
+        newGenes = []
+        for gene in genes:
+            if gene != leastInfluential[0]:
+                newGenes.append(gene)
+        best = self.bestPlaceForNewWall(newGenes)[0]
+        newGenes.append(best)
         return newGenes
 
     # This finds the wall with the least impact
@@ -372,7 +377,7 @@ class Simulation:
             individual.calcFitness()
             geneWeights.append((gene, individual.getFitness()))
         # Get the wall that leaves the solution with the greatest score
-        least = sorted(geneWeights, key=lambda x: x[1])[0]
+        least = sorted(geneWeights, key=lambda x: x[1], reverse=True)[0]
         return least
 
     # This finds the best place to put a wall
@@ -403,6 +408,7 @@ def submit(genes):
     pass
 
 eonCount = 1
+optimizeCount = 5
 eons = []
 for i in range(eonCount):
     simulation = Simulation()
@@ -423,12 +429,13 @@ print "Score: " + str(eons[0][1])
 newEons = []
 
 for eon in eons:
-    newEon = simulation.optimize(eon[0])
-    print newEon
-    individual = Individual()
-    map(lambda g: individual.addGene(g), newEon)
-    individual.calcFitness()
-    weight = individual.getFitness()
+    newEon = None
+    for i in range(optimizeCount):
+        newEon = simulation.optimize(eon[0])
+        individual = Individual()
+        map(lambda g: individual.addGene(g), newEon)
+        individual.calcFitness()
+        weight = individual.getFitness()
     newEons.append((newEon, weight))
 
 newEons = sorted(newEons, key=lambda x: x[1], reverse=True)
